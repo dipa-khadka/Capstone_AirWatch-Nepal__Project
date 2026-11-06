@@ -1,0 +1,186 @@
+/* =====================================================================
+   AirWatch Nepal: all the styling of the website (colours, spacing, shapes).
+   The page structure is in index.html and the behaviour is in app.js.
+   The file is split into numbered parts so each part is easy to find.
+   ===================================================================== */
+
+/* ---------- 1. Colours (change them here and the whole site changes) ---------- */
+:root {
+  --bg: #f3f6fb;        /* page background */
+  --card: #ffffff;      /* cards and chart boxes */
+  --text: #1b2430;      /* main text */
+  --muted: #5b6675;     /* small grey text */
+  --line: #d9e0ea;      /* thin borders */
+  --brand: #2e75b6;     /* main blue */
+  --brand2: #6a4fb3;    /* purple used with the blue */
+  --soft: rgba(46, 117, 182, .10); /* very light blue for little boxes */
+  --shadow: 0 8px 28px rgba(20, 40, 70, .10);
+  /* The six health colours. They must match the COLORS list in app.js */
+  --good: #00b050; --moderate: #ffff00; --sensitive: #ff9900;
+  --unhealthy: #ff0000; --very: #7030a0; --hazard: #7e0023;
+}
+/* Dark mode: used automatically when the phone or computer is set to dark */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1720; --card: #18222e; --text: #e8edf3; --muted: #9aa7b6;
+    --line: #2a3846; --soft: rgba(110, 170, 230, .12); --shadow: 0 8px 28px rgba(0, 0, 0, .35);
+  }
+}
+
+/* ---------- 2. Page basics ---------- */
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }   /* anything with the "hidden" attribute really disappears */
+body {
+  margin: 0; color: var(--text); line-height: 1.5;
+  font-family: "Inter", system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  /* soft blue and purple glow in the corners, fixed while scrolling */
+  background:
+    radial-gradient(1100px 600px at 8% -10%, rgba(46, 117, 182, .25), transparent 60%),
+    radial-gradient(900px 500px at 100% 0, rgba(112, 48, 160, .18), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+}
+main { max-width: 1000px; margin: auto; padding: 16px 16px 28px; }
+h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -.2px; }
+h2.sect { font-size: 20px; margin: 26px 0 2px; }
+section.in { animation: rise .45s ease both; }  /* a page slides in softly when opened */
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+/* ---------- 3. Top bar: logo and menu ---------- */
+header {
+  position: sticky; top: 0; z-index: 5; color: #fff;
+  background: linear-gradient(120deg, #143a5e, #2e75b6 55%, #6a4fb3);
+  box-shadow: 0 6px 24px rgba(20, 58, 94, .35);
+}
+.bar { max-width: 1000px; margin: auto; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.logo { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, .3); }
+.brandtext { white-space: nowrap; display: flex; flex-direction: column; font-weight: 800; font-size: 19px; line-height: 1.1; }
+.brandtext em { font-style: normal; font-weight: 600; opacity: .85; }
+.brandtext small { font-size: 11px; font-weight: 400; opacity: .8; margin-top: 2px; }
+nav { display: flex; gap: 6px; flex-wrap: wrap; }
+nav button { background: transparent; color: #fff; border: 1px solid transparent; border-radius: 999px; padding: 7px 16px; font: inherit; cursor: pointer; transition: .2s; }
+nav button:hover { background: rgba(255, 255, 255, .16); }
+nav button[aria-current="page"] { background: #fff; color: #143a5e; font-weight: 700; box-shadow: 0 4px 14px rgba(0, 0, 0, .25); }  /* the page you are on */
+
+/* ---------- 4. Page heading and the grey help sentence under it ---------- */
+.pagehead { margin-bottom: 12px; }
+.help { color: var(--muted); font-size: 14px; margin: 2px 0 12px; max-width: 760px; }
+.note { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+
+/* ---------- 5. Rows with menus and buttons ---------- */
+.row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+.row.inline { margin: 0; }
+label { font-size: 14px; color: var(--muted); }
+select, input[type=date] {
+  font: inherit; margin-left: 6px; padding: 7px 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text); box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
+}
+.btn { font: inherit; font-weight: 600; border: 0; border-radius: 999px; padding: 8px 18px; color: #fff; cursor: pointer;
+  background: linear-gradient(120deg, var(--brand), var(--brand2)); box-shadow: 0 4px 14px rgba(46, 117, 182, .35); }
+.btn:disabled { opacity: .6; cursor: wait; }
+.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); box-shadow: none; }
+
+/* ---------- 6. Messages (error, old data, live data result) ---------- */
+.notice { border-radius: 12px; padding: 10px 14px; font-size: 14px; margin: 0 0 12px; white-space: pre-line;
+  background: rgba(255, 193, 7, .14); border: 1px solid #e0a800; }
+#livelog { background: var(--card); border: 1px solid var(--line); }
+#livelog.bad, #err { border: 1px solid #d33; background: rgba(221, 51, 51, .1); color: #c62828; font-size: 14px; padding: 10px 14px; border-radius: 12px; }
+@media (prefers-color-scheme: dark) { #livelog.bad, #err { color: #ff8a80; } }
+#err { margin: 0 0 12px; }
+
+/* ---------- 7. Cards and grids ---------- */
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 14px; }
+.grid.spaced { margin-top: 14px; }
+.wide { grid-column: span 2; }   /* the pollutant card is twice as wide as the AQI card */
+.card {
+  display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; background: var(--card);
+  border: 1px solid var(--line); border-top: 5px solid var(--line);  /* the top edge gets the health colour from app.js */
+  border-radius: 18px; box-shadow: var(--shadow); transition: transform .2s, box-shadow .2s;
+}
+.card:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(20, 40, 70, .2); }
+.card small { color: var(--muted); }
+.card b { font-size: 34px; font-weight: 800; line-height: 1.1; }   /* the big numbers */
+p.lead { margin: 4px 0 10px; }
+.tag { display: inline-block; align-self: flex-start; border-radius: 12px; padding: 3px 12px; font-size: 13px; font-weight: 600; }
+
+/* ---------- 8. Home: banner, AQI circle, scale marker, facts, advice ---------- */
+#banner { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; padding: 16px 20px; font-size: 16px; border-radius: 18px; box-shadow: 0 10px 30px rgba(0, 0, 0, .2); }
+.bi { font-size: 40px; line-height: 1; }
+.gauge { align-items: center; text-align: center; }
+.ring { position: relative; width: 170px; height: 170px; margin: 6px 0; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }   /* start the circle at the top */
+.ring circle { fill: none; stroke-width: 10; stroke-linecap: round; }
+.ring .trk { stroke: var(--line); }                                 /* the grey track */
+.ring .val { stroke-dasharray: 0 327; transition: stroke-dasharray 1s ease, stroke .4s; filter: drop-shadow(0 0 5px rgba(0, 0, 0, .25)); }  /* the coloured part, length is set by app.js */
+.mid { position: absolute; inset: 0; display: grid; place-content: center; }
+.mid b { font-size: 46px; }
+.mid span { color: var(--muted); font-size: 12px; letter-spacing: 3px; }
+/* The colour bar with a small marker that shows where the AQI is */
+.meter { position: relative; width: 100%; height: 10px; margin-top: 14px; border-radius: 999px;
+  background: linear-gradient(90deg, var(--good) 0 16.66%, var(--moderate) 16.66% 33.33%, var(--sensitive) 33.33% 50%, var(--unhealthy) 50% 66.66%, var(--very) 66.66% 83.33%, var(--hazard) 83.33% 100%); }
+.meter i { position: absolute; top: -5px; width: 4px; height: 20px; margin-left: -2px; border-radius: 3px; background: var(--text); box-shadow: 0 0 0 2px var(--card); transition: left 1s ease; }
+.meterlabels { display: flex; justify-content: space-between; width: 100%; margin-top: 4px; font-size: 11px; color: var(--muted); }
+/* Little list of facts: city, time, source, change */
+.facts { width: 100%; margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--line); text-align: left; font-size: 13px; }
+.facts div { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; font-weight: 600; text-align: right; }
+/* "What you can do" advice list */
+.dos { width: 100%; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); text-align: left; }
+.dos > small { display: block; margin-bottom: 6px; font-weight: 600; }
+.do { display: flex; gap: 10px; align-items: flex-start; padding: 6px 8px; margin-bottom: 6px; border-radius: 12px; background: var(--soft); font-size: 13px; }
+.do .di { font-size: 20px; line-height: 1.2; }
+.do strong { display: block; font-size: 13px; }
+.do span.tx { color: var(--muted); }
+
+/* ---------- 9. Pollutant chart and boxes ---------- */
+.chartbox { position: relative; height: 320px; padding: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
+.chartbox.mini { height: 200px; padding: 0; border: 0; box-shadow: none; }
+.chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; margin-top: 10px; }
+.pt { padding: 10px 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(46, 117, 182, .12), rgba(106, 79, 179, .12)); }
+.pt b { font-size: 16px; font-weight: 700; }
+.pt small { color: var(--muted); }
+.pt .pv { display: block; font-size: 26px; font-weight: 800; }
+.pt p { margin: 2px 0 0; font-size: 12.5px; color: var(--muted); }
+
+/* ---------- 10. AQI colour scale (the six coloured boxes) ---------- */
+.scale { display: flex; border-radius: 12px; overflow: hidden; }
+.scale span { flex: 1; padding: 7px 2px; text-align: center; font-size: 11px; font-weight: 600; }
+.s-good { background: #00b050; color: #000; }
+.s-moderate { background: #ffff00; color: #000; }
+.s-sensitive { background: #ff9900; color: #000; }
+.s-unhealthy { background: #ff0000; color: #fff; }
+.s-very { background: #7030a0; color: #fff; }
+.s-hazard { background: #7e0023; color: #fff; }
+
+/* ---------- 11. "Air across Nepal" city tiles ---------- */
+.tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.tile { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 10px 12px; font: inherit; text-align: left; color: var(--text);
+  background: var(--card); border: 1px solid var(--line); border-left-width: 6px; border-radius: 14px; box-shadow: var(--shadow); cursor: pointer; transition: transform .2s; }
+.tile:hover { transform: translateY(-3px); }
+.tile.old { opacity: .55; }                      /* old data looks faded */
+.tile .tn { font-weight: 600; }
+.tile .ta { font-size: 28px; font-weight: 800; line-height: 1.1; }
+.tile small { color: var(--muted); font-size: 11px; }
+.tile .tag { border-radius: 10px; font-size: 11px; padding: 2px 8px; }   /* smaller pill so long level names fit */
+
+/* ---------- 12. Legend under charts and the history table ---------- */
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 10px 2px 0; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(0, 0, 0, .25); }
+.tablebox { max-height: 340px; overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+.tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tbl th, .tbl td { padding: 8px 12px; text-align: left; border-bottom: 1px solid var(--line); }
+.tbl th { position: sticky; top: 0; background: var(--card); color: var(--muted); font-weight: 600; }   /* the header stays visible while scrolling */
+
+/* ---------- 13. Bottom line ---------- */
+footer { max-width: 1000px; margin: auto; padding: 0 16px 28px; text-align: center; color: var(--muted); font-size: 12px; }
+footer .credit { margin-top: 4px; opacity: .8; }
+
+/* ---------- 14. Small screens (phones) ---------- */
+@media (max-width: 640px) {
+  .wide { grid-column: span 1; }
+  .brandtext small { display: none; }
+  h1 { font-size: 22px; }
+}
