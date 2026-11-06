@@ -8,10 +8,13 @@ import sys
 from datetime import datetime, timedelta
 from db import get_conn
 
-BASE = {"Kathmandu": 150, "Pokhara": 70, "Bhaktapur": 120, "Lalitpur": 135, "Bharatpur": 95}
+# Typical AQI of each city in the made-up data (any city not listed uses 90)
+BASE = {"Kathmandu": 150, "Pokhara": 70, "Bhaktapur": 120, "Lalitpur": 135, "Bharatpur": 95, "Biratnagar": 140,
+        "Janakpur": 130, "Nepalgunj": 125, "Dhangadhi": 110, "Lumbini": 105}  # any other city uses 90
 
 
 def main():
+    """Adds 30 days of made-up readings (one every 6 hours) for every city, or removes them with --clear."""
     conn = get_conn()
     with conn.cursor() as cur:
         cur.execute("INSERT IGNORE INTO data_source (source_name, source_url) VALUES ('Sample data', 'local')")
@@ -28,7 +31,8 @@ def main():
             rnd = random.Random(loc["city_name"])
             for h in range(30 * 24, -1, -6):  # one reading every 6 hours for 30 days
                 t = now - timedelta(hours=h)
-                aqi = round(max(15, min(320, BASE[loc["city_name"]] + 28 * math.sin(h / 24 / 4.5) + (rnd.random() - .5) * 36)))
+                # a slow wave plus a little random noise, kept between 15 and 320
+                aqi = round(max(15, min(320, BASE.get(loc["city_name"], 90) + 28 * math.sin(h / 24 / 4.5) + (rnd.random() - .5) * 36)))
                 cur.execute(
                     "INSERT IGNORE INTO aq_reading (location_id, source_id, `timestamp`, pm25, pm10, o3, no2, so2, co, aqi_value) "
                     "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
