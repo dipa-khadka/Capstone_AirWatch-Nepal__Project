@@ -2,6 +2,7 @@
 All other files call query(...) from here, so the connection details are not repeated.
 The settings (host, user, password, database name) come from the .env file in the project folder."""
 import os
+import ssl
 import pymysql
 from dotenv import load_dotenv
 
@@ -10,8 +11,17 @@ load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 
 def get_conn():
-    """Opens a new connection to the MySQL database."""
+    """Opens a new connection to the MySQL database.
+    On your own computer this is the local MySQL. For the online version (Aiven, TiDB, ...) set
+    DB_PORT and DB_SSL=true in the environment: cloud databases need a different port and an encrypted connection."""
+    tls = None
+    if os.getenv("DB_SSL", "").lower() in ("1", "true", "yes"):
+        tls = ssl.create_default_context()   # encrypted connection (traffic cannot be read on the way)
+        tls.check_hostname = False
+        tls.verify_mode = ssl.CERT_NONE      # we do not ship the provider's certificate file with the project
     return pymysql.connect(
+        ssl=tls,
+        port=int(os.getenv("DB_PORT", "3306")),
         host=os.getenv("DB_HOST", "127.0.0.1"),
         user=os.getenv("DB_USER", "root"),
         password=os.getenv("DB_PASSWORD", ""),
