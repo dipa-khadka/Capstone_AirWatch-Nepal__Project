@@ -202,6 +202,11 @@ def predict():
     if est is None:  # fewer than 3 days of data
         return error(f"Not enough data yet for {city}: {len(values)} day(s) of readings in the last 7 days, and at least 3 are needed.", 404)
     last_day = rows[-1]["day"]
+    # A prediction from old data would be a guess about the past (for example "tomorrow" in January while it is November).
+    # So we only predict when the newest daily average is at most 3 days old.
+    if (date.today() - last_day).days > 3:
+        return error(f"No recent data for {city} (the newest reading is from {last_day}), so a prediction for tomorrow is not possible. "
+                     "Cities with a live station, such as Kathmandu, Lalitpur, Bhaktapur, Dhulikhel, Gaur and Siraha, can be predicted.", 404)
     today_cat = category(values[-1])
     out = []
     for k, v in enumerate(est, start=1):  # k = 1 is tomorrow, k = 2 is the day after
