@@ -37,6 +37,8 @@
 
 <main>
   <!-- Messages that appear above the page content when needed -->
+  <!-- Air quality alert: shown on every page when a city has AQI 101 or higher (filled by app.js) -->
+  <div id="alerts" hidden></div>
   <div id="err" class="demo" hidden></div>      <!-- an error, for example "no data yet" -->
   <div id="stale" class="notice" hidden></div>  <!-- the data is more than a day old -->
 
@@ -126,22 +128,49 @@
   <section id="history" hidden>
     <div class="pagehead">
       <h1>History</h1>
-      <p class="help">All the data we have stored for this city, shown as one bar per month. The bar colour is the health level of that month. Use the year menu to look at one year, or download the numbers as a CSV file for Excel.</p>
+      <p class="help">Everything we have stored for this city. Find the worst and best months at a glance, see how each year compares with the one before, and download the numbers for Excel.</p>
     </div>
     <div class="row">
       <label>Year<select id="hyear"></select></label>
-      <button id="hcsv" class="btn ghost" type="button">Download CSV</button>
+      <button id="hcsv" class="btn ghost" type="button">⬇ Download CSV</button>
     </div>
-    <div class="chartbox"><canvas id="c_hist"></canvas></div>
-    <div class="legend" id="hlegend"></div>
-    <p class="note">Faded bars have fewer than 10 days of data, and empty spaces mean there is no data for that month.</p>
-    <div class="grid spaced" id="hcards"></div> <!-- one card per year -->
-    <div class="tablebox">
-      <table class="tbl">
-        <thead><tr><th>Month</th><th>Average AQI</th><th>Highest AQI</th><th>Days of data</th><th>Level</th></tr></thead>
-        <tbody id="htable"></tbody>
-      </table>
+
+    <!-- Four key numbers -->
+    <div class="kpis" id="hkpi"></div>
+
+    <!-- Heatmap: one row per year, one square per month, coloured by health level -->
+    <div class="panel">
+      <div class="phead"><h2>Month by month</h2><span class="psub">Each square is one month. Colour shows the health level.</span></div>
+      <div class="hmap" id="hmap"></div>
+      <div class="hkey"><span><i class="kd solid"></i>Station measurement</span><span><i class="kd dots"></i>Model estimate</span><span><i class="kd faded"></i>Less than 10 days of data</span></div>
+      <div class="legend" id="hlegend"></div>
     </div>
+
+    <!-- Yearly trend -->
+    <div class="panel">
+      <div class="phead"><h2>Yearly trend</h2><span class="psub">The label above a bar is the change from the year before.</span></div>
+      <div class="chartbox flat"><canvas id="c_year"></canvas></div>
+    </div>
+
+    <!-- Monthly bars for the chosen year -->
+    <div class="panel">
+      <div class="phead"><h2>Monthly average</h2><span class="psub" id="hmonthsub">All years</span></div>
+      <div class="chartbox flat"><canvas id="c_hist"></canvas></div>
+    </div>
+
+    <!-- One card per year -->
+    <div class="grid spaced" id="hcards"></div>
+
+    <!-- The numbers, hidden until the user opens them -->
+    <details class="panel">
+      <summary>Show the monthly table</summary>
+      <div class="tablebox">
+        <table class="tbl">
+          <thead><tr><th>Month</th><th>Average AQI</th><th>Highest AQI</th><th>Days of data</th><th>Level</th></tr></thead>
+          <tbody id="htable"></tbody>
+        </table>
+      </div>
+    </details>
   </section>
 
   <!-- ============ COMPARE: two or three cities side by side ============ -->

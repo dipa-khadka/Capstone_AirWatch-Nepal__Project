@@ -167,10 +167,22 @@ async function home() {
   const [bg, fg] = col(d.label);
   const p = Object.fromEntries(Object.entries(d.pollutants).filter(([k, v]) => v !== null));   // keep only the pollutants we have
 
-  // Coloured health message at the top
+  // Big card at the top: AQI number, level, message, two main pollutants and the full colour scale with a marker
   const b = $('#banner');
-  b.style.display = ''; b.style.background = `linear-gradient(120deg,${bg},${bg}d9)`; b.style.color = fg;
-  b.innerHTML = `<span class="bi">${ICON[d.label] || ''}</span><div><strong>${d.label} (AQI ${d.aqi})</strong><br>${d.message}</div>`;
+  b.style.background = ''; b.style.color = '';          // the colours now come from style.css (our blue theme)
+  const order = ['PM2.5', 'PM10', 'O3', 'NO2', 'SO2', 'CO'];   // show the dust numbers first
+  const main = Object.entries(p).sort((x, y) => order.indexOf(x[0]) - order.indexOf(y[0])).slice(0, 2).map(([k, v]) => `<div class="hp"><small>${INFO[k][0]}</small><b>${v}</b><span>${['O3', 'NO2', 'SO2', 'CO'].includes(k) ? 'ppb' : 'µg/m³'}</span></div>`).join('');
+  const j = BANDS.findIndex(([, hi]) => d.aqi <= hi), jj = j < 0 ? 5 : j;
+  const pos = Math.min(100, (jj + Math.min(1, (d.aqi - BANDS[jj][0]) / (BANDS[jj][1] - BANDS[jj][0]))) / 6 * 100);
+  b.innerHTML = `<div class="hero-top">
+      <div class="hnum"><small>Live AQI (US)</small><b id="heronum">${d.aqi}</b></div>
+      <div class="hmsg"><span class="tag big" style="background:${bg};color:${fg}">${ICON[d.label] || ''} ${d.label}</span><p>${d.message}</p></div>
+      <div class="hpoll">${main}</div>
+    </div>
+    <div class="hscale"><div class="hbar"><i style="left:${pos}%"></i></div>
+      <div class="hticks"><span>Good</span><span>Moderate</span><span>Sensitive</span><span>Unhealthy</span><span>Very unhealthy</span><span>Hazardous</span></div>
+      <div class="hnums"><span>0</span><span>50</span><span>100</span><span>150</span><span>200</span><span>300+</span></div></div>`;
+  countUp($('#heronum'), d.aqi);
 
   // The AQI circle: the number counts up and the coloured arc grows to match the value
   countUp($('#aqinum'), d.aqi);
@@ -251,8 +263,54 @@ async function history() {
   const years = d.years.filter(y => yr === 'all' || String(y.year) === yr);
   lastHist = months.filter(m => m.avg !== null);   // months that really have data
 
-  // One card per year
-  $('#hcards').innerHTML = years.map(y => `<div class="card" style="border-top-color:${col(y.label)[0]}"><small>${y.year} average</small><b>${y.avg}</b>${tagHtml(y.label)}<small>${y.days} day${y.days === 1 ? '' : 's'} of data</small>${y.worst_month ? `<small>Worst month: ${fm(y.worst_month)} (AQI ${y.worst_avg})</small>` : ''}</div>`).join('');
+  // One card per year (years that only have an aqi.in yearly average say so)
+  $('#hcards').innerHTML = years.map(y => `<div class="card" style="border-top-color:${col(y.label)[0]}"><small>${y.year} average</small><b>${y.avg}</b>${tagHtml(y.label)}<small>${y.days ? y.days + ' day' + (y.days === 1 ? '' : 's') + ' of data' : 'Yearly average only (aqi.in)'}</small>${y.change !== null ? `<small>${y.change > 0 ? 'Rise' : 'Fall'} of ${Math.abs(y.change)}% from ${y.year - 1}</small>` : ''}${y.worst_month ? `<small>Worst month: ${fm(y.worst_month)} (AQI ${y.worst_avg})</small>` : ''}</div>`).join('');
+
+  // Four key numbers at the top
+  const have = d.months.filter(m => m.avg !== null);
+  const totalDays = have.reduce((t, m) => t + m.days, 0);
+  const overall = totalDays ? Math.round(have.reduce((t, m) => t + m.avg * m.days, 0) / totalDays) : null;
+  const ex = d.extremes, ol = overall === null ? null : (BANDS.find(([, hi]) => overall <= hi) || BANDS[5])[2];
+  const kpi = (label, big, sub, color) => `<div class="kpi" style="border-top-color:${color}"><small>${label}</small><b>${big}</b><span>${sub}</span></div>`;
+  $('#hkpi').innerHTML =
+    kpi('Overall average AQI', overall ?? '-', ol ? ol : '', ol ? col(ol)[0] : 'var(--line)') +
+    (ex ? kpi('Most polluted month', ex.worst.avg, fm(ex.worst.month) + ' · ' + ex.worst.label, col(ex.worst.label)[0]) +
+          kpi('Cleanest month', ex.best.avg, fm(ex.best.month) + ' · ' + ex.best.label, col(ex.best.label)[0]) : '') +
+    kpi('Years covered', d.years.length, fm(d.from) + ' to ' + fm(d.to), 'var(--brand)');
+
+  // Heatmap: a row for every year, a square for every month. Dots mean the month is a model estimate.
+  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const byMonth = Object.fromEntries(d.months.map(m => [m.month, m]));
+  const badge = y => y.kind === 'station' ? 'Station' : y.kind === 'model' ? 'Model' : y.kind === 'yearly' ? 'aqi.in' : 'Mixed';
+  let hm = '<div class="hrow hhead"><span></span>' + MONTHS.map(m => `<span>${m}</span>`).join('') + '<span>Year</span></div>';
+  d.years.forEach(y => {
+    hm += `<div class="hrow"><span class="hy">${y.year}</span>` + MONTHS.map((_, i) => {
+      const m = byMonth[`${y.year}-${String(i + 1).padStart(2, '0')}`];
+      if (!m || m.avg === null) return '<span class="hc empty"></span>';
+      const [bg2, fg2] = col(m.label);
+      return `<span class="hc${m.kind === 'model' ? ' dots' : ''}${m.days < 10 ? ' low' : ''}" style="background-color:${bg2};color:${fg2}" title="${fm(m.month)}: AQI ${m.avg} (${m.label}), ${m.days} day${m.days === 1 ? '' : 's'} of data">${m.avg}</span>`;
+    }).join('') + `<span class="hyr" title="${y.source}"><b>${y.avg}</b><small>${badge(y)}</small></span></div>`;
+  });
+  $('#hmap').innerHTML = hm;
+  $('#hmonthsub').textContent = yr === 'all' ? 'All years' : yr;
+
+  // Yearly trend chart: one bar per year, coloured by level, with the % change above the bar
+  const all = d.years;
+  const changeLabels = { id: 'changeLabels', afterDatasetsDraw(c) {
+    const ctx = c.ctx; ctx.save(); ctx.textAlign = 'center'; ctx.font = '600 12px sans-serif';
+    c.getDatasetMeta(0).data.forEach((bar, i) => {
+      const ch = all[i].change; if (ch === null) return;
+      ctx.fillStyle = ch > 0 ? '#d64545' : '#2e9e4f';
+      ctx.fillText((ch > 0 ? '▲ +' : '▼ ') + ch + '%', bar.x, bar.y - 6);
+    });
+    ctx.restore();
+  } };
+  mk('c_year', {
+    type: 'bar',
+    data: { labels: all.map(y => y.year), datasets: [{ label: 'Yearly average AQI', data: all.map(y => y.avg), backgroundColor: all.map(y => col(y.label)[0] + (y.complete ? '' : '66')), borderRadius: 4 }] },
+    options: { ...base, layout: { padding: { top: 22 } }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => { const y = all[c.dataIndex]; return `Average AQI ${y.avg} (${y.label}), source: ${y.source}${y.complete ? '' : ', less than a full year of data'}`; } } } } },
+    plugins: [changeLabels]
+  });
 
   // Table of the months that have data
   $('#htable').innerHTML = lastHist.map(m => `<tr><td>${fm(m.month)}</td><td>${m.avg}</td><td>${m.max}</td><td>${m.days}</td><td>${tagHtml(m.label)}</td></tr>`).join('');
@@ -269,7 +327,7 @@ async function history() {
     }
   });
   $('#stale').hidden = true;
-  $('#foot').textContent = 'Data sources: ' + d.sources.join(', ') + '  |  Data from ' + fm(d.from) + ' to ' + fm(d.to);
+  $('#foot').textContent = 'Data sources: ' + d.sources.concat(d.years.some(y => !y.days) ? ['aqi.in (yearly averages 2022 to 2025)'] : []).join(', ') + '  |  Data from ' + fm(d.from) + ' to ' + fm(d.to);
 }
 
 // Downloads the months on screen as a CSV file (opens in Excel).
@@ -417,6 +475,23 @@ function clearPage(p) {
 // Loads the open page. If something changes while it is loading (for example the user picks another city
 // quickly), it loads once more when the first load ends, so the screen always matches the last choice.
 let running = false, again = false;
+
+/* ----- ALERTS: warns when the air is unhealthy (shown on every page) ----- */
+// A city is in alert when its newest reading is fresh (not older than 24 hours) and the AQI is 101 or higher
+// (level "Unhealthy for Sensitive Groups" or worse). The most polluted cities come first.
+async function alerts() {
+  const box = $('#alerts');
+  try {
+    const bad = (await api('overview')).filter(c => !c.stale && c.aqi >= 101).sort((a, b) => b.aqi - a.aqi);
+    if (!bad.length) { box.hidden = true; return; }
+    const worst = col(bad[0].label);
+    box.style.borderLeftColor = worst[0];
+    box.innerHTML = `<strong>⚠️ Air quality alert</strong><span class="ah">AQI 101 or higher. Sensitive people should limit time outdoors.</span>` +
+      `<div class="achips">${bad.map(c => `<span class="achip" style="background:${col(c.label)[0]};color:${col(c.label)[1]}" title="${c.label}, updated ${c.time}">${c.city} ${c.aqi}</span>`).join('')}</div>`;
+    box.hidden = false;
+  } catch (e) { box.hidden = true; }   // an alert problem must never break the page
+}
+
 async function run() {
   if (running) { again = true; return; }
   running = true;
@@ -424,6 +499,7 @@ async function run() {
     again = false;
     showErr('');
     try { await pages[page](); } catch (e) { clearPage(page); showErr(e.message); }
+    alerts();   // check the alert level of all cities after every page change or refresh
   } while (again);
   running = false;
 }
