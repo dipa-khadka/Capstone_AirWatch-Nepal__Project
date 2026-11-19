@@ -105,8 +105,30 @@ p.lead { margin: 4px 0 10px; }
 .tag { display: inline-block; align-self: flex-start; border-radius: 12px; padding: 3px 12px; font-size: 13px; font-weight: 600; }
 
 /* ---------- 8. Home: banner, AQI circle, scale marker, facts, advice ---------- */
-#banner { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; padding: 16px 20px; font-size: 16px; border-radius: 18px; box-shadow: 0 10px 30px rgba(0, 0, 0, .2); }
-.bi { font-size: 40px; line-height: 1; }
+/* Big card at the top of Home. It uses the same blue and purple as the header. */
+#banner { margin-bottom: 14px; padding: 22px 24px 16px; border-radius: 20px; color: #fff;
+  background: linear-gradient(120deg, #143a5e, #2e75b6 60%, #6a4fb3); box-shadow: 0 12px 32px rgba(20, 58, 94, .35); }
+.hero-top { display: flex; flex-wrap: wrap; gap: 18px 28px; align-items: center; }
+.hnum small { display: block; opacity: .85; font-size: 13px; }
+.hnum b { font-size: 84px; font-weight: 800; line-height: 1; }
+.hmsg { flex: 1 1 240px; }
+.hmsg p { margin: 10px 0 0; font-size: 15px; line-height: 1.4; opacity: .95; }
+.tag.big { font-size: 17px; padding: 6px 16px; }
+.hpoll { display: flex; gap: 12px; }
+.hp { min-width: 92px; padding: 10px 14px; border-radius: 14px; background: rgba(255, 255, 255, .14); text-align: center; }
+.hp small, .hp span { display: block; font-size: 12px; opacity: .85; }
+.hp b { font-size: 26px; font-weight: 800; }
+.hscale { margin-top: 20px; }
+.hbar { position: relative; height: 12px; border-radius: 999px;
+  background: linear-gradient(90deg, var(--good) 0 16.66%, var(--moderate) 16.66% 33.33%, var(--sensitive) 33.33% 50%, var(--unhealthy) 50% 66.66%, var(--very) 66.66% 83.33%, var(--hazard) 83.33% 100%); }
+.hbar i { position: absolute; top: -6px; width: 5px; height: 24px; margin-left: -2px; border-radius: 3px; background: #fff; box-shadow: 0 0 0 2px rgba(0, 0, 0, .35); transition: left 1s ease; }
+.hticks, .hnums { display: flex; font-size: 11px; opacity: .9; }
+.hticks { margin-top: 8px; }
+.hticks span, .hnums span { flex: 1; text-align: left; }
+@media (max-width: 640px) { .hnum b { font-size: 64px; } .hticks { font-size: 9px; } }
+.hnums span { opacity: .75; }
+/* The circle card below keeps the circle, the facts and the advice. The colour scale is already in the big card above, so it is hidden here. */
+#aqicard .meter, #aqicard .meterlabels { display: none; }
 .gauge { align-items: center; text-align: center; }
 .ring { position: relative; width: 170px; height: 170px; margin: 6px 0; }
 .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }   /* start the circle at the top */
@@ -184,3 +206,44 @@ footer .credit { margin-top: 4px; opacity: .8; }
   .brandtext small { display: none; }
   h1 { font-size: 22px; }
 }
+
+/* ---------- Air quality alert bar (top of every page) ---------- */
+#alerts { margin-bottom: 14px; padding: 12px 16px; border-radius: 14px; background: var(--card); border: 1px solid var(--line);
+  border-left: 6px solid var(--unhealthy); box-shadow: var(--shadow); display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+#alerts[hidden] { display: none; }
+#alerts .ah { color: var(--muted); font-size: 13px; }
+.achips { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
+.achip { padding: 3px 11px; border-radius: 999px; font-size: 13px; font-weight: 700; }
+
+/* ---------- History page (new look) ---------- */
+.kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-bottom: 16px; }
+.kpi { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line);
+  border-top: 4px solid var(--brand); border-radius: 16px; box-shadow: var(--shadow); }
+.kpi small { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.kpi b { font-size: 34px; font-weight: 800; line-height: 1.1; }
+.kpi span { color: var(--muted); font-size: 12px; }
+/* Panels: white rounded boxes that hold one chart or table each */
+.panel { margin-bottom: 16px; padding: 16px 18px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); }
+.phead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 12px; }
+.phead h2 { margin: 0; font-size: 18px; }
+.psub { color: var(--muted); font-size: 13px; }
+.chartbox.flat { height: 260px; padding: 0; border: 0; box-shadow: none; background: transparent; }
+/* Heatmap */
+.hmap { overflow-x: auto; }
+.hrow { display: grid; grid-template-columns: 46px repeat(12, minmax(34px, 1fr)) 74px; gap: 4px; margin-bottom: 4px; min-width: 560px; align-items: stretch; }
+.hhead span { text-align: center; font-size: 11px; color: var(--muted); }
+.hy { font-weight: 700; font-size: 13px; align-self: center; }
+.hc { display: flex; align-items: center; justify-content: center; min-height: 34px; border-radius: 8px; font-size: 12px; font-weight: 700; transition: transform .15s; }
+.hc:not(.empty):hover { transform: scale(1.12); position: relative; z-index: 1; box-shadow: 0 4px 14px rgba(0, 0, 0, .3); }
+.hc.empty { background: var(--soft); }
+.hc.low { opacity: .45; }
+.hc.dots, .kd.dots { background-image: radial-gradient(rgba(255, 255, 255, .55) 1.2px, transparent 1.4px); background-size: 6px 6px; }
+.hyr { display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; background: var(--soft); line-height: 1.1; }
+.hyr b { font-size: 15px; }
+.hyr small { font-size: 10px; color: var(--muted); }
+.hkey { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.hkey span { display: inline-flex; align-items: center; gap: 6px; }
+.kd { display: inline-block; width: 16px; height: 16px; border-radius: 4px; background-color: var(--sensitive); }
+.kd.faded { opacity: .45; }
+details.panel summary { cursor: pointer; font-weight: 700; }
+details.panel[open] summary { margin-bottom: 12px; }

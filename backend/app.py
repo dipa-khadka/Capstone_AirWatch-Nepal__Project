@@ -229,6 +229,13 @@ def month_range(first, last):
     return out
 
 
+
+# Yearly average AQI (US) of Kathmandu for the years where we have no daily data.
+# Source: aqi.in, "Annual AQI (US) Trends" of the US Embassy Kathmandu station (checked 17 Nov 2026).
+# These are only yearly numbers, so they are used for the yearly trend chart and never for daily charts or predictions.
+AQI_IN_YEARLY = {2022: 155, 2023: 117, 2024: 98, 2025: 90}
+
+
 @app.route("/api/history")
 def history():
     """History page: monthly averages and yearly summaries over all the stored data of a city."""
@@ -246,6 +253,14 @@ def history():
     def label_for(aqi):
         return next((c["label"] for c in cats if c["aqi_min"] <= aqi <= c["aqi_max"]), "Unknown")
 
+    # Which months are station measurements and which are model estimates (Open-Meteo)
+    kinds = {r["month"]: ("model" if int(r["only_model"]) == 1 else "station" if int(r["any_model"]) == 0 else "mixed")
+             for r in query(
+        "SELECT DATE_FORMAT(r.`timestamp`, '%%Y-%%m') AS month, MIN(s.source_name LIKE 'Open-Meteo%%') AS only_model, "
+        "MAX(s.source_name LIKE 'Open-Meteo%%') AS any_model "
+        "FROM aq_reading r JOIN location l ON l.location_id = r.location_id JOIN data_source s ON s.source_id = r.source_id "
+        "WHERE l.city_name = %s GROUP BY month", (city,))}
+
     # Fill the months without data with empty entries, so they appear as gaps
     by_month = {r["month"]: r for r in rows}
     months = []
@@ -253,9 +268,9 @@ def history():
         r = by_month.get(m)
         if r:
             avg = int(r["avg_aqi"])
-            months.append({"month": m, "avg": avg, "max": int(r["max_aqi"]), "days": int(r["days"]), "label": label_for(avg)})
+            months.append({"month": m, "avg": avg, "max": int(r["max_aqi"]), "days": int(r["days"]), "label": label_for(avg), "kind": kinds.get(m, "station")})
         else:
-            months.append({"month": m, "avg": None, "max": None, "days": 0, "label": None})
+            months.append({"month": m, "avg": None, "max": None, "days": 0, "label": None, "kind": None})
 
     # One summary per year, with the worst month (only months with at least 10 days of data count)
     year_rows = query(
@@ -271,11 +286,34 @@ def history():
         years.append({"year": yr, "avg": avg, "days": int(y["days"]), "label": label_for(avg),
                       "worst_month": worst["month"] if worst else None, "worst_avg": worst["avg"] if worst else None})
 
+    # Years that complete (about a full year of data) can be compared with the year before
+    for y in years:
+        y["complete"] = y["days"] >= 300
+        ks = {m["kind"] for m in months if m["month"].startswith(str(y["year"])) and m["avg"] is not None}
+        y["kind"] = "model" if ks == {"model"} else "station" if ks == {"station"} else "mixed"
+        y["source"] = {"model": "Open-Meteo (CAMS model)", "station": "monitoring station"}.get(y["kind"], "station and model")
+    # Add the yearly averages of aqi.in for the years that are missing in our database
+    if city == "Kathmandu":
+        have = {y["year"] for y in years}
+        for yr, avg in AQI_IN_YEARLY.items():
+            if yr not in have:
+                years.append({"year": yr, "avg": avg, "days": 0, "label": label_for(avg), "worst_month": None,
+                              "worst_avg": None, "complete": True, "kind": "yearly", "source": "aqi.in (yearly average only)"})
+        years.sort(key=lambda y: y["year"])
+    # Percent change against the previous year (only when both years are complete)
+    for i, y in enumerate(years):
+        prev_y = years[i - 1] if i else None
+        ok = prev_y and prev_y["year"] == y["year"] - 1 and prev_y["complete"] and y["complete"]
+        y["change"] = round((y["avg"] - prev_y["avg"]) * 100 / prev_y["avg"]) if ok else None
+    # Most and least polluted month of our own data (months with at least 10 days of data)
+    solid = [m for m in months if m["avg"] is not None and m["days"] >= 10]
+    extremes = {"worst": max(solid, key=lambda m: m["avg"]), "best": min(solid, key=lambda m: m["avg"])} if solid else None
+
     sources = [r["source_name"] for r in query(
         "SELECT DISTINCT s.source_name FROM aq_reading r JOIN data_source s ON s.source_id = r.source_id "
         "JOIN location l ON l.location_id = r.location_id WHERE l.city_name = %s ORDER BY s.source_name", (city,))]
     return jsonify({"city": city, "from": months[0]["month"], "to": months[-1]["month"],
-                    "sources": sources, "months": months, "years": years})
+                    "sources": sources, "months": months, "years": years, "extremes": extremes})
 
 
 # ---------------------------------------------------------------------------
