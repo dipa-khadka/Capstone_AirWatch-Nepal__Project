@@ -505,8 +505,8 @@ async function run() {
   do {
     again = false;
     showErr('');
+    alerts();   // check the alert level of all cities at the same time as the page loads (not after it), so the bar appears sooner
     try { await pages[page](); } catch (e) { clearPage(page); showErr(e.message); }
-    alerts();   // check the alert level of all cities after every page change or refresh
   } while (again);
   running = false;
 }
