@@ -1,7 +1,7 @@
 # AirWatch Nepal
 
 **Air Pollution Trend Analysis and Prediction System** for 17 Nepali cities.
-Capstone Project CAPR-F2026, Group 2 (Dipa Khadka, Sujit Shrestha, Raveen KC).
+Capstone Project CAPR-F2026, Group 2 (Dipa Khadka, Sujit Shrestha, Rabin KC).
 
 - **Website (live):** https://capstone-airwatch-nepal-project.onrender.com/
   The site runs on a free server. If nobody has opened it for 15 minutes it goes to sleep, so the first visit can take about one minute to load. After that it is fast.
