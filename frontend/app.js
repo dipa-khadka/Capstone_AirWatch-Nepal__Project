@@ -101,6 +101,16 @@ async function api(path) {
   return j;
 }
 
+// The "all cities" list is needed by two parts of the Home page (the tiles and the alert bar).
+// Asking twice within 5 seconds reuses the same answer, so the server does the work only once.
+let ovAt = 0, ovCache = null;
+function overview() {
+  if (ovCache && Date.now() - ovAt < 5000) return ovCache;
+  ovAt = Date.now();
+  ovCache = api('overview').catch(e => { ovAt = 0; throw e; });
+  return ovCache;
+}
+
 // Shows (or hides, when the text is empty) the red error box at the top of the page.
 function showErr(m) {
   const e = $('#err');
@@ -226,7 +236,7 @@ async function home() {
 // "Air across Nepal": one tile per city with its latest AQI. A click opens that city.
 async function tiles() {
   try {
-    const list = await api('overview');
+    const list = await overview();
     $('#tiles').innerHTML = list.map(x => {
       const [bg] = col(x.label);
       return `<button class="tile${x.stale ? ' old' : ''}" data-city="${x.city}" style="border-left-color:${bg}">` +
@@ -482,7 +492,7 @@ let running = false, again = false;
 async function alerts() {
   const box = $('#alerts');
   try {
-    const bad = (await api('overview')).filter(c => !c.stale && c.aqi >= 101).sort((a, b) => b.aqi - a.aqi);
+    const bad = (await overview()).filter(c => !c.stale && c.aqi >= 101).sort((a, b) => b.aqi - a.aqi);
     if (!bad.length) { box.hidden = true; return; }
     const worst = col(bad[0].label);
     box.style.setProperty('--ac', worst[0]);

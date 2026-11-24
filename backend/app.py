@@ -61,14 +61,11 @@ def latest_reading(city):
     return rows[0] if rows else None
 
 
-def current_payload(city):
-    """Everything the Home page needs about a city's newest reading, or None if the city has no data."""
-    r = latest_reading(city)
-    if not r:
-        return None
+def payload_from_row(r):
+    """Turns one joined reading row (see latest_reading) into the dictionary the Home page uses."""
     cat = category(r["aqi_value"])
     return {
-        "city": city,
+        "city": r["city_name"],
         "aqi": r["aqi_value"],
         "label": cat["label"],
         "message": cat["message"],
@@ -78,6 +75,12 @@ def current_payload(city):
         "source": r["source_name"],
         "pollutants": {name: (float(r[col]) if r[col] is not None else None) for col, name in POLLUTANTS.items()},
     }
+
+
+def current_payload(city):
+    """Everything the Home page needs about a city's newest reading, or None if the city has no data."""
+    r = latest_reading(city)
+    return payload_from_row(r) if r else None
 
 
 def daily_series(city, days):
@@ -138,11 +141,21 @@ def current():
 @app.route("/api/overview")
 def overview():
     """'Air across Nepal' tiles on the Home page: the newest AQI of every city that has data."""
-    out = []
-    for c in query("SELECT city_name FROM location ORDER BY city_name"):
-        p = current_payload(c["city_name"])
-        if p:
-            out.append({"city": p["city"], "aqi": p["aqi"], "label": p["label"], "time": p["time"], "stale": p["stale"]})
+    # One query for all cities (the newest reading of each), instead of one database connection per city.
+    # This is much faster, especially with the online database.
+    rows = query(
+        "SELECT r.*, l.city_name, s.source_name FROM aq_reading r "
+        "JOIN location l ON l.location_id = r.location_id JOIN data_source s ON s.source_id = r.source_id "
+        "JOIN (SELECT location_id, MAX(`timestamp`) AS newest FROM aq_reading GROUP BY location_id) m "
+        "ON m.location_id = r.location_id AND m.newest = r.`timestamp` "
+        "ORDER BY l.city_name")
+    out, seen = [], set()
+    for r in rows:
+        if r["city_name"] in seen:   # two sources with the same newest time: keep one
+            continue
+        seen.add(r["city_name"])
+        p = payload_from_row(r)
+        out.append({"city": p["city"], "aqi": p["aqi"], "label": p["label"], "time": p["time"], "stale": p["stale"]})
     return jsonify(out)
 
 
