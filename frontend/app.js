@@ -175,7 +175,7 @@ async function home() {
   const j = BANDS.findIndex(([, hi]) => d.aqi <= hi), jj = j < 0 ? 5 : j;
   const pos = Math.min(100, (jj + Math.min(1, (d.aqi - BANDS[jj][0]) / (BANDS[jj][1] - BANDS[jj][0]))) / 6 * 100);
   b.innerHTML = `<div class="hero-top">
-      <div class="hnum"><small>Live AQI (US)</small><b id="heronum">${d.aqi}</b></div>
+      <div class="hnum"><small>${d.stale ? 'Last known AQI (' + d.time.slice(0, 10) + ')' : 'Live AQI (US)'}</small><b id="heronum">${d.aqi}</b></div>
       <div class="hmsg"><span class="tag big" style="background:${bg};color:${fg}">${ICON[d.label] || ''} ${d.label}</span><p>${d.message}</p></div>
       <div class="hpoll">${main}</div>
     </div>
@@ -485,9 +485,16 @@ async function alerts() {
     const bad = (await api('overview')).filter(c => !c.stale && c.aqi >= 101).sort((a, b) => b.aqi - a.aqi);
     if (!bad.length) { box.hidden = true; return; }
     const worst = col(bad[0].label);
-    box.style.borderLeftColor = worst[0];
-    box.innerHTML = `<strong>⚠️ Air quality alert</strong><span class="ah">AQI 101 or higher. Sensitive people should limit time outdoors.</span>` +
-      `<div class="achips">${bad.map(c => `<span class="achip" style="background:${col(c.label)[0]};color:${col(c.label)[1]}" title="${c.label}, updated ${c.time}">${c.city} ${c.aqi}</span>`).join('')}</div>`;
+    box.style.setProperty('--ac', worst[0]);
+    box.innerHTML = `<div class="ahead"><span class="aicon">⚠️</span><div class="atext"><strong>Air quality alert</strong>` +
+      `<span class="ah">${bad.length} ${bad.length > 1 ? 'cities have' : 'city has'} AQI 101 or higher right now. Sensitive people should limit time outdoors. Tap a city to see details.</span></div>` +
+      `<span class="acount">${bad.length}</span></div>` +
+      `<div class="achips">${bad.map(c => `<button class="achip" data-city="${c.city}" style="background:${col(c.label)[0]};color:${col(c.label)[1]}" title="${c.label}, updated ${c.time}">${c.city} <b>${c.aqi}</b> <small>${c.label}</small></button>`).join('')}</div>`;
+    box.querySelectorAll('.achip').forEach(t => t.addEventListener('click', () => {
+      $('#city').value = t.dataset.city;
+      if (page !== 'home') show('home'); else run();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }));
     box.hidden = false;
   } catch (e) { box.hidden = true; }   // an alert problem must never break the page
 }
