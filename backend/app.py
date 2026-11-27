@@ -4,7 +4,7 @@ It does two jobs:
   1. It serves the web page (the files in the frontend folder).
   2. It answers the page's questions with data from the MySQL database (the /api/... addresses).
 
-Run it with:  python backend/app.py   (then open http://127.0.0.1:5001)
+
 
 Main parts of this file:
   - helper functions that read the database
@@ -73,6 +73,7 @@ def payload_from_row(r):
         # "stale" means the newest reading is more than 24 hours old (Use Case UC-02, alternative flow)
         "stale": datetime.now() - r["timestamp"] > timedelta(hours=24),
         "source": r["source_name"],
+        "model": r["source_name"].startswith("Open-Meteo"),   # a computer model estimate, not a station reading
         "pollutants": {name: (float(r[col]) if r[col] is not None else None) for col, name in POLLUTANTS.items()},
     }
 
@@ -155,7 +156,7 @@ def overview():
             continue
         seen.add(r["city_name"])
         p = payload_from_row(r)
-        out.append({"city": p["city"], "aqi": p["aqi"], "label": p["label"], "time": p["time"], "stale": p["stale"]})
+        out.append({"city": p["city"], "aqi": p["aqi"], "label": p["label"], "time": p["time"], "stale": p["stale"], "model": p["model"]})
     return jsonify(out)
 
 

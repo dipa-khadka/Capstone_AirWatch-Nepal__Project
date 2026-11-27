@@ -1,13 +1,15 @@
-"""Data collection (Sujit's part). Gets new readings from aqicn.org and saves them in the database.
+"""
 
 How it works: one call to aqicn.org lists every live station inside Nepal. For every city in the
 LOCATION table we pick the nearest station (at most 25 km away, updated in the last 48 hours), read its
 pollutant values and save one row in AQ_READING. Saving the same reading twice
 is harmless, because the table has a unique key on (city, source, time).
 
-Run once:            python backend/collector.py
-Run every 60 min:    python backend/collector.py --every 60
-Needs WAQI_TOKEN in the .env file (free: https://aqicn.org/data-platform/token/).
+Cities with no usable live station get a fallback: the current hourly values of the Open-Meteo computer
+model (CAMS), saved under their own source name "Open-Meteo (CAMS model)". They are model estimates, not station
+measurements, and the website says so. A city that has a live station never gets model rows.
+
+
 The dashboard's "Update live data" button and the optional automatic refresh call collect_once() too.
 """
 import math
@@ -17,6 +19,7 @@ import sys
 import time
 import requests
 from db import get_conn
+from import_openmeteo import API as MODEL_API, SOURCE as MODEL_SOURCE, pm25_to_aqi
 
 TOKEN = os.getenv("WAQI_TOKEN", "")  # your free aqicn.org token, kept in the .env file
 URL = "https://api.waqi.info/feed/geo:{lat};{lon}/"  # "give me the nearest station to this point"
@@ -69,19 +72,22 @@ def pick_station(lat, lon, stations, now=None):
     for st in stations:
         try:
             km = km_between(float(lat), float(lon), float(st["lat"]), float(st["lon"]))
-            int(st["aqi"])                                          # "-" means no AQI right now
-            age = now - station_time(st)
         except (KeyError, ValueError, TypeError):
             continue
         if nearest_km is None or km < nearest_km:
             nearest_km = km
+        try:
+            int(st["aqi"])                                          # "-" means no AQI right now
+            age = now - station_time(st)
+        except (KeyError, ValueError, TypeError):
+            continue
         if km <= MAX_KM and age <= timedelta(hours=MAX_AGE_HOURS) and (best is None or km < best_km):
             best, best_km = st, km
     if best:
         return best, best_km, None
     if nearest_km is None or nearest_km > MAX_KM:
         return None, nearest_km, f"no live station within {MAX_KM} km"
-    return None, nearest_km, "the nearby station has not updated recently"
+    return None, nearest_km, "the nearby station has no current reading"
 
 
 def read_station(st):
@@ -99,6 +105,66 @@ def read_station(st):
     return int(st["aqi"]), when, [None] * len(COLS)
 
 
+def model_fallback(cur, cities, now=None):
+    """Cities without a live station: saves the last 7 days of Open-Meteo model values (hourly, up to the current
+    hour) and returns one result per city. Only hours newer than the city's newest saved reading are added,
+    so existing data is never touched and the same hour is never saved twice."""
+    if not cities:
+        return []
+    now = (now or datetime.now(NEPAL_TZ)).replace(tzinfo=None, minute=0, second=0, microsecond=0)
+    try:  # one request for all these cities (Open-Meteo accepts a list of coordinates)
+        r = requests.get(MODEL_API, timeout=60, params={
+            "latitude": ",".join(str(float(c["latitude"])) for c in cities),
+            "longitude": ",".join(str(float(c["longitude"])) for c in cities),
+            "hourly": "pm2_5,pm10,ozone", "past_days": 7, "forecast_days": 1, "timezone": "Asia/Kathmandu"})
+        r.raise_for_status()
+        data = r.json()
+        data = data if isinstance(data, list) else [data]
+        if len(data) != len(cities):
+            raise RuntimeError("unexpected answer from Open-Meteo")
+    except Exception as e:
+        return [{"city": c["city_name"], "ok": False, "error": f"no live station, and the model estimate failed ({e})"} for c in cities]
+    cur.execute("INSERT IGNORE INTO data_source (source_name, source_url) VALUES (%s, %s)",
+                (MODEL_SOURCE, "https://open-meteo.com/en/docs/air-quality-api"))
+    cur.execute("SELECT source_id FROM data_source WHERE source_name = %s", (MODEL_SOURCE,))
+    sid = cur.fetchone()["source_id"]
+    out = []
+    for c, d in zip(cities, data):
+        try:
+            h = d["hourly"]
+            hours = [(datetime.fromisoformat(t), a, b, o) for t, a, b, o in zip(h["time"], h["pm2_5"], h["pm10"], h["ozone"])
+                     if a is not None and datetime.fromisoformat(t) <= now]
+            if not hours:
+                raise RuntimeError("no values for this city")
+            # A city that had a real station reading in the last 3 days keeps its station data: model values are
+            # not mixed in, because they would distort the daily averages and the prediction.
+            cur.execute("SELECT MAX(r.`timestamp`) AS last_station FROM aq_reading r JOIN data_source s ON s.source_id = r.source_id "
+                        "WHERE r.location_id = %s AND s.source_name NOT LIKE 'Open-Meteo%%'", (c["location_id"],))
+            last_station = cur.fetchone()["last_station"]
+            if last_station is not None and now - last_station < timedelta(hours=72):
+                out.append({"city": c["city_name"], "ok": False, "error": "no live station right now, the last station reading is kept (model values are not mixed in)"})
+                continue
+            cur.execute("SELECT MAX(`timestamp`) AS newest FROM aq_reading WHERE location_id = %s", (c["location_id"],))
+            newest = cur.fetchone()["newest"]
+            new = 0
+            for t, pm25, pm10, o3 in hours:
+                if newest is not None and t <= newest:
+                    continue                                   # keep what is already saved, add only newer hours
+                aqi = pm25_to_aqi(pm25)
+                if aqi is None:
+                    continue
+                o3_ppb = round(o3 / 1.96, 2) if o3 is not None else None   # ug/m3 to ppb, same as import_openmeteo.py
+                cur.execute("INSERT IGNORE INTO aq_reading (location_id, source_id, `timestamp`, pm25, pm10, o3, aqi_value) "
+                            "VALUES (%s,%s,%s,%s,%s,%s,%s)", (c["location_id"], sid, t.strftime("%Y-%m-%d %H:%M:%S"), pm25, pm10, o3_ppb, aqi))
+                new += cur.rowcount
+            t, pm25 = hours[-1][0], hours[-1][1]
+            out.append({"city": c["city_name"], "ok": True, "aqi": pm25_to_aqi(pm25), "time": t.strftime("%Y-%m-%d %H:%M:%S"),
+                        "station": "model estimate, not a station", "model": True, "new": new})
+        except Exception as e:
+            out.append({"city": c["city_name"], "ok": False, "error": f"no live station, and the model estimate failed ({e})"})
+    return out
+
+
 def collect_once():
     """Fetch one reading for every city and save it. Returns one result per city."""
     if not TOKEN:
@@ -111,13 +177,13 @@ def collect_once():
             source_id = cur.fetchone()["source_id"]
             cur.execute("SELECT location_id, city_name, latitude, longitude FROM location ORDER BY city_name")
             stations = nepal_stations()  # one call for all cities
+            no_station = []              # cities that get the model fallback below
             for loc in cur.fetchall():
                 city = loc["city_name"]
                 try:
                     st, km, why = pick_station(loc["latitude"], loc["longitude"], stations)
                     if not st:
-                        extra = f" (nearest is {km:.0f} km away)" if km is not None else ""
-                        results.append({"city": city, "ok": False, "error": f"{why}{extra}, skipped"})
+                        no_station.append(loc)
                         continue
                     aqi, when, vals = read_station(st)
                     cur.execute(
@@ -128,6 +194,8 @@ def collect_once():
                                     "station": f"{st['station']['name']}, {km:.0f} km", "new": cur.rowcount})
                 except Exception as e:  # one city failing must not stop the others
                     results.append({"city": city, "ok": False, "error": str(e)})
+            results += model_fallback(cur, no_station)
+            results.sort(key=lambda r: r["city"])
     finally:
         conn.close()
     return results
