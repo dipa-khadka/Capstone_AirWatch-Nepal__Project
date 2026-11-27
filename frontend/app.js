@@ -552,8 +552,10 @@ async function live() {
     if (!r.ok) throw new Error(j.error || ('Request failed (' + r.status + ')'));
     // Cities with data first. Cities with no live station within 25 km are grouped into one line.
     const ok = j.results.filter(x => x.ok), bad = j.results.filter(x => !x.ok);
-    const far = bad.filter(x => /no live station/.test(x.error)), other = bad.filter(x => !far.includes(x));
+    const kept = bad.filter(x => /last station reading is kept/.test(x.error)), far = bad.filter(x => /model estimate failed/.test(x.error));
+    const other = bad.filter(x => !kept.includes(x) && !far.includes(x));
     const lines = [...ok.map(x => `${x.city}: AQI ${x.aqi} at ${x.time} (${x.station})`), ...other.map(x => `${x.city}: ${x.error}`)];
+    if (kept.length) lines.push(`No new reading from the station right now for: ${kept.map(x => x.city).join(', ')}. Their last station reading stays on screen.`);
     if (far.length) lines.push(`No live station and no model estimate for: ${far.map(x => x.city).join(', ')}. Their latest saved reading stays on screen.`);
     log.className = 'notice';
     log.textContent = `Live data fetched. ${j.saved} new reading${j.saved === 1 ? '' : 's'} saved.\n` + lines.join('\n');
