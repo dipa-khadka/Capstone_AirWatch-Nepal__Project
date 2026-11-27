@@ -88,7 +88,7 @@ const legendHtml = () => BANDS.map(([lo, hi, l]) =>
   `<span><i style="background:${col(l)[0]}"></i>${l} <small>${hi === 500 ? '301+' : (lo === 0 ? 0 : lo + 1) + '-' + hi}</small></span>`).join('');
 
 // Plain wording for the data source name that comes from the database.
-const srcName = s => s === 'Sample data' ? 'Sample data (not real readings)' : s === 'aqicn.org' ? 'aqicn.org (Nepal Department of Environment)' : s;
+const srcName = s => s === 'Sample data' ? 'Sample data (not real readings)' : s === 'aqicn.org' ? 'aqicn.org (Nepal Department of Environment)' : /^Open-Meteo/.test(s) ? s + ', computer model estimate, not a station' : s;
 
 /* ---------- 3. Talking to the API ---------- */
 
@@ -185,7 +185,7 @@ async function home() {
   const j = BANDS.findIndex(([, hi]) => d.aqi <= hi), jj = j < 0 ? 5 : j;
   const pos = Math.min(100, (jj + Math.min(1, (d.aqi - BANDS[jj][0]) / (BANDS[jj][1] - BANDS[jj][0]))) / 6 * 100);
   b.innerHTML = `<div class="hero-top">
-      <div class="hnum"><small>${d.stale ? 'Last known AQI (' + d.time.slice(0, 10) + ')' : 'Live AQI (US)'}</small><b id="heronum">${d.aqi}</b></div>
+      <div class="hnum"><small>${d.stale ? 'Last known AQI (' + d.time.slice(0, 10) + ')' : d.model ? 'Model estimate (US AQI)' : 'Live AQI (US)'}</small><b id="heronum">${d.aqi}</b></div>
       <div class="hmsg"><span class="tag big" style="background:${bg};color:${fg}">${ICON[d.label] || ''} ${d.label}</span><p>${d.message}</p></div>
       <div class="hpoll">${main}</div>
     </div>
@@ -241,7 +241,7 @@ async function tiles() {
       const [bg] = col(x.label);
       return `<button class="tile${x.stale ? ' old' : ''}" data-city="${x.city}" style="border-left-color:${bg}">` +
         `<span class="tn">${x.city}</span><span class="ta">${x.aqi}</span>${tagHtml(x.label)}` +
-        `<small>${x.stale ? 'Last seen ' + x.time.slice(0, 10) : 'Updated ' + x.time.slice(5, 16)}</small></button>`;
+        `<small>${x.stale ? 'Last seen ' + x.time.slice(0, 10) : (x.model ? 'Estimate ' : 'Updated ') + x.time.slice(5, 16)}</small></button>`;
     }).join('');
     document.querySelectorAll('.tile').forEach(t => t.addEventListener('click', () => { $('#city').value = t.dataset.city; run(); window.scrollTo({ top: 0, behavior: 'smooth' }); }));
   } catch (e) { $('#tiles').innerHTML = ''; }
@@ -368,6 +368,13 @@ async function trends() {
   } else url += '&days=' + r;
   const d = await api(url), s = d.stats;
 
+  // One plain sentence above the chart, so the chart is understood even when the top of the page is scrolled away
+  const period = r === 'custom' ? fd($('#dfrom').value) + ' to ' + fd($('#dto').value) : 'the last ' + r + ' days';
+  $('#tsum').innerHTML = d.days.length < 2
+    ? `<b>${$('#city').value}, ${period}:</b> only one day of data so far (${fd(s.lowest.date)}): the air was <b>${lab(s.average).toLowerCase()}</b> (AQI ${s.average}). A trend needs at least two days, so more days will appear as new readings are collected.`
+    : `<b>${$('#city').value}, ${period}:</b> the air was <b>${lab(s.average).toLowerCase()}</b> on average (AQI ${s.average}). ` +
+    `Best day: ${fd(s.lowest.date)} (${s.lowest.aqi}, ${lab(s.lowest.aqi)}). Worst day: ${fd(s.highest.date)} (${s.highest.aqi}, ${lab(s.highest.aqi)}).`;
+
   // Three boxes: average, highest, lowest
   $('#tstats').innerHTML = `<div class="card"><small>Average AQI</small><b>${s.average}</b><small>of the whole period</small></div>` +
     `<div class="card"><small>Highest AQI</small><b>${s.highest.aqi}</b><small>${fd(s.highest.date)}</small></div>` +
@@ -426,6 +433,11 @@ async function predict() {
     e.innerHTML = `<small>${t}</small><b>${v}</b>${tagHtml(l)}`;
   });
 
+  // One plain sentence above the chart: what to expect tomorrow compared with today
+  const diff = tm.aqi - d.today.aqi;
+  const trendWord = Math.abs(diff) <= 5 ? 'about the same as today' : diff > 0 ? 'worse than today' : 'better than today';
+  $('#psum').innerHTML = `<b>${city}:</b> tomorrow the air will probably be <b>${tm.label.toLowerCase()}</b> (AQI ${tm.aqi}), ${trendWord} (AQI ${d.today.aqi}). The day after: <b>${da.label.toLowerCase()}</b> (AQI ${da.aqi}).`;
+
   // Chart data: the real days, then two empty slots for tomorrow and the day after
   const labels = [...h.map(x => fd(x.date)), fd(tm.date), fd(da.date)];
   const A = [...y, null, null];                                  // real values (the solid line)
@@ -474,7 +486,7 @@ const pages = { home, trends, history, compare, predict };     // page name -> f
 
 // Empties a page when it could not load, so old numbers and charts do not stay on screen next to an error.
 function clearPage(p) {
-  const boxes = { home: ['#chips', '#aqinum', '#aqicat', '#facts', '#dos', '#tiles'], trends: ['#tstats'], history: ['#hcards', '#htable'], compare: ['#cardA', '#cardB', '#cardC'], predict: ['#pt', '#pm', '#pd'] };
+  const boxes = { home: ['#chips', '#aqinum', '#aqicat', '#facts', '#dos', '#tiles'], trends: ['#tstats', '#tsum'], history: ['#hcards', '#htable'], compare: ['#cardA', '#cardB', '#cardC'], predict: ['#pt', '#pm', '#pd', '#psum'] };
   (boxes[p] || []).forEach(s => { const e = $(s); e.innerHTML = ''; e.style.background = ''; e.style.borderColor = ''; });
   if (p === 'home') { $('#banner').style.display = 'none'; $('#arc').style.strokeDasharray = '0 327'; $('#aqicard').style.borderTopColor = ''; }
   $('#stale').hidden = true;
@@ -492,14 +504,14 @@ let running = false, again = false;
 async function alerts() {
   const box = $('#alerts');
   try {
-    const bad = (await overview()).filter(c => !c.stale && c.aqi >= 101).sort((a, b) => b.aqi - a.aqi);
+    const bad = (await overview()).filter(c => !c.stale && !c.model && c.aqi >= 101).sort((a, b) => b.aqi - a.aqi);
     if (!bad.length) { box.hidden = true; return; }
     const worst = col(bad[0].label);
     box.style.setProperty('--ac', worst[0]);
     box.innerHTML = `<div class="ahead"><span class="aicon">⚠️</span><div class="atext"><strong>Air quality alert</strong>` +
-      `<span class="ah">${bad.length} ${bad.length > 1 ? 'cities have' : 'city has'} AQI 101 or higher right now. Sensitive people should limit time outdoors. Tap a city to see details.</span></div>` +
+      `<span class="ah">${bad.length} ${bad.length > 1 ? 'cities have' : 'city has'} AQI 101 or higher right now (station measurements). Sensitive people should limit time outdoors. Tap a city to see details.</span></div>` +
       `<span class="acount">${bad.length}</span></div>` +
-      `<div class="achips">${bad.map(c => `<button class="achip" data-city="${c.city}" style="background:${col(c.label)[0]};color:${col(c.label)[1]}" title="${c.label}, updated ${c.time}">${c.city} <b>${c.aqi}</b> <small>${c.label}</small></button>`).join('')}</div>`;
+      `<div class="achips">${bad.map(c => `<button class="achip" data-city="${c.city}" style="background:${col(c.label)[0]};color:${col(c.label)[1]}" title="${c.label}, updated ${c.time}">${c.city} <b>${c.aqi}</b> <small>${c.label}${c.model ? ' (estimate)' : ''}</small></button>`).join('')}</div>`;
     box.querySelectorAll('.achip').forEach(t => t.addEventListener('click', () => {
       $('#city').value = t.dataset.city;
       if (page !== 'home') show('home'); else run();
@@ -542,7 +554,7 @@ async function live() {
     const ok = j.results.filter(x => x.ok), bad = j.results.filter(x => !x.ok);
     const far = bad.filter(x => /no live station/.test(x.error)), other = bad.filter(x => !far.includes(x));
     const lines = [...ok.map(x => `${x.city}: AQI ${x.aqi} at ${x.time} (${x.station})`), ...other.map(x => `${x.city}: ${x.error}`)];
-    if (far.length) lines.push(`No live station within 25 km for: ${far.map(x => x.city).join(', ')}. Their latest saved reading stays on screen.`);
+    if (far.length) lines.push(`No live station and no model estimate for: ${far.map(x => x.city).join(', ')}. Their latest saved reading stays on screen.`);
     log.className = 'notice';
     log.textContent = `Live data fetched. ${j.saved} new reading${j.saved === 1 ? '' : 's'} saved.\n` + lines.join('\n');
     log.hidden = false;

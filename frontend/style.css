@@ -263,3 +263,6 @@ footer .credit { margin-top: 4px; opacity: .8; }
 .kd.faded { opacity: .45; }
 details.panel summary { cursor: pointer; font-weight: 700; }
 details.panel[open] summary { margin-bottom: 12px; }
+
+/* one-sentence summary above the Trends chart */
+.tsum { margin: 4px 0 14px; font-size: 18px; line-height: 1.5; color: var(--text); }

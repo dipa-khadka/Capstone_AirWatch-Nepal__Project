@@ -26,11 +26,11 @@
       <span class="brandtext">AirWatch <em>Nepal</em><small>Air quality in Nepal's cities</small></span>
     </span>
     <nav>
-      <button data-p="home">Home</button>
-      <button data-p="trends">Trends</button>
-      <button data-p="history">History</button>
-      <button data-p="compare">Compare</button>
-      <button data-p="predict">Prediction</button>
+      <button data-p="home" title="Air quality right now">Home</button>
+      <button data-p="trends" title="How the air changed over the last days">Trends</button>
+      <button data-p="history" title="Months and years of air quality">History</button>
+      <button data-p="compare" title="Two cities side by side">Compare</button>
+      <button data-p="predict" title="Estimate for tomorrow">Prediction</button>
     </nav>
   </div>
 </header>
@@ -118,6 +118,7 @@
         <label>To<input type="date" id="dto"></label>
       </span>
     </div>
+    <p class="tsum" id="tsum"></p> <!-- one plain sentence that sums up the chart -->
     <div class="chartbox"><canvas id="c_trend"></canvas></div>
     <div class="legend" id="tlegend"></div>
     <p class="note">The coloured background shows the health level of each AQI range. Empty gaps in the line mean there was no data on those days.</p>
@@ -195,6 +196,7 @@
       <p class="help">A simple guess of the air quality for tomorrow and the day after. We draw a straight line through the average AQI of the last 7 days and continue it for two more days. The diamond is tomorrow and the square is the day after.</p>
     </div>
     <div class="grid"><div class="card" id="pt"></div><div class="card" id="pm"></div><div class="card" id="pd"></div></div>
+    <p class="tsum" id="psum"></p> <!-- one plain sentence that sums up the chart -->
     <div class="chartbox"><canvas id="c_pred"></canvas></div>
     <p class="note">This is a simple estimate from a straight-line trend of the last 7 days. It is not an exact forecast.</p>
   </section>
