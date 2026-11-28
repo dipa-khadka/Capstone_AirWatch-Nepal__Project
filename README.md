@@ -1,9 +1,9 @@
 # AirWatch Nepal
 
 **Air Pollution Trend Analysis and Prediction System** for 17 Nepali cities.
-Capstone Project CAPR-F2026, Group 2 (Dipa Khadka, Sujit Shrestha, Rabin KC).
+Capstone Project CAPR-F2026, Group 2 (Dipa Khadka, Sujit Shrestha, Raveen KC).
 
-- **Website (live):** https://capstone-airwatch-nepal-project.onrender.com/
+- **Website (live):** https://capstone-airwatch-nepal-project.onrender.com
   The site runs on a free server. If nobody has opened it for 15 minutes it goes to sleep, so the first visit can take about one minute to load. After that it is fast.
 - **Code:** https://github.com/dipa-khadka/Capstone_AirWatch-Nepal__Project
 
@@ -11,11 +11,11 @@ Capstone Project CAPR-F2026, Group 2 (Dipa Khadka, Sujit Shrestha, Rabin KC).
 | Page | What you can do | Requirement |
 |---|---|---|
 | Home | See the current AQI of a city, its health level, a short health message, advice for the day, the pollutants the station reports, and the AQI of all 17 cities ("Air across Nepal") | FR-02, FR-07 |
-| Trends | See the daily AQI of a city for the last 7, 14 or 30 days, or for your own date range, with the average, highest and lowest value | FR-03, FR-06 |
+| Trends | See the daily AQI of a city for the last 7, 14 or 30 days, or for your own date range, with the average, highest and lowest value and a one-sentence summary | FR-03, FR-06 |
 | History | See all stored data of a city: key numbers, a colour grid of every month, the yearly trend with the change from the year before, and a CSV download | FR-03, FR-06 |
 | Compare | Compare 2 or 3 cities side by side | FR-04 |
-| Prediction | Estimate the AQI of tomorrow and the day after from the last 7 days | FR-05 |
-| Alert bar (every page) | Warns when a city has an AQI of 101 or higher and fresh data | FR-07 |
+| Prediction | Estimate the AQI of tomorrow and the day after from the last 7 days, with a one-sentence summary | FR-05 |
+| Alert bar (every page) | Warns when a city has an AQI of 101 or higher in a fresh station reading (model estimates are never used for alerts) | FR-07 |
 | Update live data button | Fetches the newest readings right now | FR-01 |
 
 ## Where the data comes from (please read)
@@ -26,10 +26,13 @@ Not all data is the same kind. The website shows which kind it is (History page:
 | 2017 to March 2021 | Kathmandu | US Embassy and Phora Durbar monitors (US EPA AirNow), taken from Open Data Nepal and https://github.com/hbvj99/EPAAirPollution | **Real station measurements** |
 | August 2022 to 2025 | All 17 cities | Open-Meteo air quality API (CAMS model of Copernicus) | **Model estimate**, not a station measurement |
 | October 2026 to now | Kathmandu, Lalitpur, Bhaktapur, Dhulikhel, Gaur, Siraha | aqicn.org live stations | **Real station measurements** (updated by GitHub Actions) |
+| November 2026 to now | Every city that has no live station reading in the last 3 days | Open-Meteo current values (CAMS model), saved by the collector | **Model estimate**, labelled "estimate" on the website |
 
 Known limits:
 - There is no free public data for March 2021 to July 2022, so that period is empty.
-- Only a few Nepali stations are live on aqicn.org. The other 11 cities have no live data, so for them the Home page shows the last available reading with a notice, and Prediction says that no recent data is available.
+- Only a few Nepali stations are live on aqicn.org. For a city with no live station reading in the last 3 days, the collector saves the current Open-Meteo model values instead (the last 7 days on the first run, then every new hour). The website marks them as "estimate", so every city has recent data and Prediction works for all cities. A city that has a recent station reading keeps its station data, and model values are not mixed into it.
+- Alerts use station measurements only, because the model can be higher or lower than a station.
+- If a station is offline, the website shows its last reading. A reading older than 24 hours is marked as old.
 - The live stations report only PM2.5 and ozone. The database and collector can store PM10, NO2, SO2 and CO as well, and will do so when a station reports them.
 - Model estimates can differ from a station, especially in the Kathmandu valley.
 - Prediction is a simple trend estimate (a straight line through the last 7 daily averages), not a weather-style forecast. It only runs when the newest reading is at most 3 days old.
@@ -41,7 +44,8 @@ Browser (HTML, CSS, JavaScript, Chart.js)
 Flask API (Python)  ---  MySQL (4 tables)
         ^
         |  readings
-Collector (aqicn.org live stations)   run by GitHub Actions on a schedule
+Collector (aqicn.org live stations,
+          Open-Meteo model as a fallback)  run by GitHub Actions on a schedule
 ```
 - **Hosting:** website on Render, database on Aiven MySQL, collector on GitHub Actions.
 - **Database tables:** LOCATION, AQ_READING, DATA_SOURCE, HEALTH_CATEGORY (Week 5 design).
@@ -52,7 +56,7 @@ airwatch-nepal/
   database/seed.sql            17 cities and the 6 health categories
   backend/app.py               Flask API, also serves the website
   backend/analysis.py          trend statistics and the 2-day prediction (pandas, scikit-learn)
-  backend/collector.py         gets live readings from aqicn.org and saves them
+  backend/collector.py         gets live readings from aqicn.org (and Open-Meteo model values for cities without a live station) and saves them
   backend/db.py                MySQL connection (local or cloud, set in .env)
   backend/setup_db.py          creates the tables and cities in whichever database .env points to
   backend/import_csv.py        imports readings from a CSV file
@@ -84,7 +88,7 @@ airwatch-nepal/
 ## Who did what
 - Sujit Shrestha: database and data collection
 - Dipa Khadka: backend, trend analysis and prediction
-- Rabin KC (project manager): frontend and documentation
+- Raveen KC (project manager): frontend and documentation
 
 ## Developer setup (optional)
 You do not need to run anything to see the project, the website above is already live. These steps are only for someone who wants to run their own copy on Windows.
@@ -107,4 +111,4 @@ You do not need to run anything to see the project, the website above is already
 ## Credits
 - Live data: World Air Quality Index Project (aqicn.org) and the stations behind it.
 - Historical data: US EPA AirNow and the US Department of State monitors in Kathmandu, via Open Data Nepal (CC BY-SA) and https://github.com/hbvj99/EPAAirPollution.
-- Model data: Open-Meteo.com air quality API (CAMS, Copernicus Atmosphere Monitoring Service).
+- Model data (2022 to 2025 and the live fallback): Open-Meteo.com air quality API (CAMS, Copernicus Atmosphere Monitoring Service).
